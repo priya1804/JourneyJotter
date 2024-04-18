@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="with=device-width, initial-scale=1.0">
+<title> Journey Jotter </title>
+<link rel="stylesheet" href="style.css">
+<style>
+    #map {
+        height: 400px;
+        width: 100%;
+    }
+
+    #places-list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .place {
+        width: calc(33.33% - 10px);
+        border: 1px solid #ccc;
+        padding: 10px;
+        text-align: center;
+        background: #f9f9f9;
+        margin-bottom: 10px;
+        cursor: pointer;
+    }
+
+    .place img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+    }
+
+    #search-inputs {
+        text-align: center;
+        padding: 10px;
+    }
+
+    #source-input,
+    #destination-input {
+        width: 100%;
+        padding: 5px;
+        margin-bottom: 10px;
+    }
+</style>
+</head>
+<body>
+<section class="header">
+<nav>
+<a href="maths.html"><img src="image1.png"></a>
+<div class="nav-links">
+<ul>
+<li><a href="">HOME</a></li>
+<li><a href="">ABOUT</a></li>
+<li><a href="">PLACES</a></li>
+<li><a href="">BLOG</a></li>
+<li><a href="">CONTACT</a></li>
+</div>
+</nav>
+<div id="search-inputs">
+        <input id="destination-input" type="text" placeholder="Enter city">
+        <button onclick="searchLoc()">Search Tourism Places</button>
+    </div>
+    <div id="map"></div>
+    <div id="places-list"></div>
+
+    <script>
+        const placesList = document.getElementById('places-list');
+        var markers = [];
+
+        
+        function initMap() {
+            // Add autocomplete functionality to the input fields
+            const destinationInput = document.getElementById('destination-input');
+            const destinationAutocomplete = new google.maps.places.Autocomplete(destinationInput);
+
+            var map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 20.5937, lng: 78.9629 }, // Set your initial map center
+                zoom: 7, // Set your initial zoom level
+            });
+                        
+            map.addListener("click", function (event) {
+                // Clear existing markers
+                clearMarkers();
+                placesList.innerHTML = '';
+                
+                // Get the clicked location
+                var location = event.latLng;
+                
+                // Add a marker at the clicked location
+                var marker = new google.maps.Marker({
+                    position: location,
+                    map: map,
+                    title: "Clicked Location",
+                });
+                
+                // Find nearby tourism places
+                findNearbyTourismPlaces(map, location);
+            });
+        }
+
+        function searchAutoSuggest(event) {
+            const inputField = event.target;
+            const inputValue = inputField.value;
+
+            if (inputValue.length >= 3) {
+                // Perform auto-suggestion here using the Google Places Autocomplete Service
+                const autoCompleteService = new google.maps.places.AutocompleteService();
+                autoCompleteService.getPlacePredictions({
+                    input: inputValue,
+                    componentRestrictions: { country: 'IN' }, // Adjust based on your location
+                }, (predictions) => {
+                    const suggestionList = predictions.map(prediction => prediction.description);
+                    displayAutoSuggestions(inputField, suggestionList);
+                });
+            }
+        }
+
+        function displayAutoSuggestions(inputField, suggestions) {
+            const suggestionContainer = inputField.nextElementSibling;
+            suggestionContainer.innerHTML = '';
+
+            suggestions.forEach(suggestion => {
+                const suggestionItem = document.createElement('div');
+                suggestionItem.textContent = suggestion;
+                suggestionItem.addEventListener('click', () => {
+                    inputField.value = suggestion;
+                    suggestionContainer.innerHTML = '';                        // Clear suggestions
+                });
+                suggestionContainer.appendChild(suggestionItem);
+            });
+        }
+        
+        function searchLoc(){
+            var geocoder = new google.maps.Geocoder();
+            const destination = document.getElementById('destination-input').value;
+
+            geocoder.geocode({'address': destination}, function(results, status) {
+                if (status == google.maps.GeocoderStatus.OK) {
+                  // Clear existing markers
+                  clearMarkers();
+                  placesList.innerHTML = '';
+                  
+                  // Get the clicked location
+                  var location = results[0].geometry.location;
+                  
+                  var latitude = results[0].geometry.location.lat();
+                  var longitude = results[0].geometry.location.lng();
+                  
+                  // Add a marker at the clicked location
+                  var marker = new google.maps.Marker({
+                      position: location,
+                      map: map,
+                      title: "Clicked Location",
+                  });
+                  map = new google.maps.Map(document.getElementById("map"), {
+                      center: { lat: latitude, lng: longitude }, // Set your initial map center
+                      zoom: 12,                                  // Set your initial zoom level
+                  });
+                  marker.setMap(map);
+                  findNearbyTourismPlaces(map, results[0].geometry.location);
+                }
+            });
+        }
+
+      // Function to display photos when clicking on a marker
+      function showPhotosForMarker(place) {
+            const div = document.createElement('div');
+            div.classList.add('place');
+            const photos = place.photos || [];
+
+            if (photos.length > 0) {
+                const img = document.createElement('img');
+                img.src = photos[0].getUrl({ maxWidth: 300, maxHeight: 200 });
+                div.appendChild(img);
+            }
+
+            div.innerHTML += `<h3>${place.name}</h3><p>${place.vicinity}</p>`;
+            // placesList.innerHTML = ''; // Clear previous suggestions
+            placesList.appendChild(div);
+        }
+
+
+      function clearMarkers() {
+        for (var i = 0; i < markers.length; i++) {
+          markers[i].setMap(null);
+        }
+        markers = [];
+      }
+
+      function findNearbyTourismPlaces(map, location) {
+        var service = new google.maps.places.PlacesService(map);
+
+        var request = {
+          location: location,
+          radius: 5000, // Adjust the radius to your preference
+          type: ["tourist_attraction"], // Specify the type of places you want to find
+        };
+
+        service.nearbySearch(request, function (results, status) {
+          if (status == google.maps.places.PlacesServiceStatus.OK) {
+            for (var i = 0; i < results.length; i++) {
+              var marker = new google.maps.Marker({
+                map: map,
+                position: results[i].geometry.location,
+                title: results[i].name,
+              });
+              showPhotosForMarker(results[i]); // Call the function here
+              markers.push(marker);
+            }
+          }
+        });
+      }
+    </script>
+
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&libraries=places&callback=initMap"
+      async
+      defer
+    ></script>
+  </body>
+</html>
